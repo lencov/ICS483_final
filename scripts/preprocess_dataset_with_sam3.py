@@ -135,10 +135,22 @@ def preprocess_masks(args):
                 # scores = output["scores"]
                 
                 if masks is not None and len(masks) > 0:
-                    # Convert to binary tensor 
-                    # masks are likely boolean or float 0-1.
-                    # Union them.
-                    current_union = torch.any(torch.tensor(masks), dim=0) # [H, W]
+                    # masks might be a list or tensor. Convert safely.
+                    if not isinstance(masks, torch.Tensor):
+                        masks = torch.tensor(masks)
+                    
+                    # Ensure masks is on CPU for logic
+                    masks = masks.cpu()
+
+                    # masks shape from SAM3 can be [1, 1, H, W] or [1, H, W] or [H, W]
+                    # We want to collapse all leading dimensions to get "Any mask at pixel (i, j)"
+                    if masks.ndim > 2:
+                        # Flatten all init dimensions: (N, H, W) -> (N, H, W)
+                        # or (B, N, H, W) -> (B*N, H, W)
+                        masks = masks.view(-1, masks.shape[-2], masks.shape[-1])
+                    
+                    # Calculate transform
+                    current_union = torch.any(masks, dim=0) # [H, W]
                     
                     if combined_mask is None:
                         combined_mask = current_union
