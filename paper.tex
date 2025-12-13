@@ -1,0 +1,72 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+
+\title{From Subjective to Objective: Automated Verification of Janitorial Tasks and States}
+\author{Your Name \\ University of Hawaii at M\=anoa \\ \texttt{your.email@hawaii.edu}}
+\maketitle
+
+\begin{abstract}
+This project investigates the ability of large-scale vision foundation models to verify janitorial maintenance operations. Moving beyond subjective "cleanliness" detection, we focus on two objective problems: \textbf{Task Recognition} (classifying the type of work, e.g., Pressure Washing, Trash Removal) and \textbf{State Recognition} (determining if the work is Active or Done). We compare self-supervised and vision-language representations from DINOv3 and CLIP, evaluating their robustness to domain shift across different sites. The results will demonstrate whether modern pretrained encoders can effectively automate quality assurance by verifying that the correct task was performed and completed.
+\end{abstract}
+
+\section{Introduction}
+Ensuring quality in facility maintenance is traditionally reliant on manual inspections and subjective assessments of "cleanliness." However, standards for cleanliness vary significantly by context—a "clean" pressure-washed sidewalk looks different from a "clean" trash room. This subjectivity poses a major challenge for automated systems.
+
+To address this, this project pivots from subjective cleanliness detection to \textbf{objective task verification}. We define two concrete objectives:
+\begin{enumerate}
+    \item \textbf{Task Recognition}: Identifying what maintenance activity is visible (e.g., Pressure Washing, Roof Cleaning, Trash Removal).
+    \item \textbf{State Recognition}: Determining the status of the work (Active/In-Progress vs. Done).
+\end{enumerate}
+This approach allows for a robust, verifiable automated QA system. We evaluate the generalization ability of DINOv3 and CLIP embeddings on a real-world dataset of janitorial images collected across multiple sites.
+
+\section{Related Work}
+This work draws on recent advances in large-scale visual representation learning. DINOv3~\cite{dinov3} is a self-supervised Vision Transformer trained on 1.7 billion images without human labels. CLIP~\cite{clip} is a vision-language model trained contrastively on hundreds of millions of image-text pairs. Prior studies have demonstrated their strengths in zero-shot classification, but their application to industrial maintenance verification remains underexplored.
+
+\section{Data}
+Our dataset consists of 6,589 images from multiple janitorial worksites.
+\begin{itemize}
+    \item \textbf{Source}: Images are organized by Site (e.g., WAIPIO, CENTER\_OF\_WAIKIKI) and Date.
+    \item \textbf{Labels}:
+    \begin{itemize}
+        \item \textbf{Task}: Derived from folder names (e.g., "Pressure wash", "Trash", "Roof"). Dominant classes include General Cleaning (~2,300), Pressure Washing (~1,450), and Trash Removal (~550).
+        \item \textbf{State}: Derived from file paths and manual sorting (Before/Work\_In\_Progress $\rightarrow$ Active, After $\rightarrow$ Done).
+    \end{itemize}
+\end{itemize}
+We use strict cross-site splits, training on a subset of sites and evaluating on held-out sites to measure generalization.
+
+\section{Methods}
+We compare two foundation-model feature extractors:
+\begin{enumerate}
+    \item \textbf{DINOv3}: A self-supervised Vision Transformer. We extract frozen embeddings.
+    \item \textbf{CLIP}: A vision-language model. We use its image encoder to extract embeddings.
+\end{enumerate}
+
+For each model, we train a \textbf{Multi-Head Linear Probe}:
+\begin{itemize}
+    \item \textbf{Head A (Task)}: A logistic regression classifier trained to predict the Task class (Multi-class).
+    \item \textbf{Head B (State)}: A logistic regression classifier trained to predict the State (Binary: Active vs. Done).
+\end{itemize}
+This setup evaluates the richness of the underlying representations for both semantic categorization and state verification.
+
+\section{Evaluation}
+Performance will be measured using F1-score and Accuracy for both Task and State classification. We will report per-site metrics to quantify cross-domain robustness. Confusion matrices will be used to analyze misclassifications between similar tasks (e.g., General Cleaning vs. Trash Removal).
+
+\section{Expected Results}
+We expect DINOv3 to show strong performance on texture-heavy tasks like Pressure Washing, while CLIP may excel at identifying objects associated with specific tasks (e.g., trash bags, ladders). The State recognition task is expected to be challenging due to visual similarity between "In-Progress" and "Done" states in some contexts, but we hypothesize that the models will learn to identify cues such as wet surfaces or organized equipment.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+\bibitem{dinov3}
+Meta AI, \emph{DINOv3: Training Vision Transformers with Self-Supervised Learning}, 2023.
+
+\bibitem{clip}
+Alec Radford et al., \emph{Learning Transferable Visual Models From Natural Language Supervision}, 2021.
+\end{thebibliography}
+
+\end{document}

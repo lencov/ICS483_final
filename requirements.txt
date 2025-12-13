@@ -1,0 +1,12 @@
+torch
+torchvision
+tqdm
+matplotlib
+seaborn
+scikit-learn
+requests
+pillow
+timm>=1.0.20
+transformers>=4.56.0
+open_clip_torch
+pillow-heif

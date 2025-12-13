@@ -1,0 +1,41 @@
+# Images (Ignore specific types anywhere)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.heic
+*.jfif
+*.MOV
+*.TMP
+
+# Models & Checkpoints
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+*.h5
+checkpoints/
+models/
+
+# Data Directory (Ignore actual data content for hybrid workflow)
+data/original/
+data/masks/
+# Keep data/ structure but ignore content likely covered above, but safe to be explicit
+# We DO want master_dataset.csv in root, so that's fine.
+
+# System
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+venv/
+*.egg-info/
+
+# Logs
+*.log
+
+# Colab Zips (Don't commit the zips)
+*.zip
