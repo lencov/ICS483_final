@@ -22,11 +22,11 @@ def evaluate(args):
     # Dataset
     # Use 'test' split if available, else 'val'
     split = 'test'
-    dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform)
+    dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform, use_masks=args.use_masks)
     if len(dataset) == 0:
         print("Test split empty, falling back to val split.")
         split = 'val'
-        dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform)
+        dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform, use_masks=args.use_masks)
         
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
     print(f"Evaluating on {split} set ({len(dataset)} samples).")
@@ -117,6 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, default='.')
     parser.add_argument('--backbone', type=str, default='vit_small_patch14_dinov2.lvd142m', 
                         help='Backbone model name. Examples: vit_small_patch14_dinov2.lvd142m (DINOv2), openai/clip-vit-base-patch16 (CLIP)')
+    parser.add_argument('--use_masks', action='store_true', help='Use SAM 3 generated masks')
     args = parser.parse_args()
     
     evaluate(args)

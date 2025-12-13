@@ -27,17 +27,17 @@ from sam3.model.sam3_image_processor import Sam3Processor
 # Mapping from our Task Labels to SAM 3 Text Prompts
 # tailored to find the 'active' elements of the task
 TASK_PROMPTS = {
-    'Pressure Washing': ["pressure washer", "water hose", "wet surface", "worker"],
-    'Trash Removal': ["trash bag", "garbage bin", "trash can", "debris", "worker"],
-    'Roof Cleaning': ["roof", "worker", "ladder", "debris"],
-    'Window/Glass': ["window", "squeegee", "worker", "ladder"],
-    'Graffiti/Stickers': ["graffiti", "sticker", "spray paint", "wall stain"],
-    'Lighting': ["light fixture", "ladder", "worker"],
-    'Restroom': ["toilet", "sink", "urinal", "paper towel dispenser", "worker"],
-    'Gutters': ["gutter", "leaves", "debris", "ladder"],
-    'Floor/Carpet': ["floor buffer", "vacuum", "mop", "wet floor sign"],
-    'Vacant Unit': ["empty room", "carpet", "furniture"], # Harder to define 'active' here
-    'General Cleaning': ["cleaning cart", "mop", "broom", "worker"]
+    'Pressure Washing': ["pressure washer", "water hose", "wet surface", "worker", "spray gun", "concrete stain", "mold", "wall", "dirt", "grime", "gum", "tire marks", "bird droppings"],
+    'Trash Removal': ["trash bag", "garbage bin", "trash can", "debris", "worker", "dumpster", "cardboard box", "litter", "overflowing bin", "liquid spill", "stain"],
+    'Roof Cleaning': ["roof", "worker", "ladder", "debris", "moss", "leaves", "safety harness", "rope", "dirt", "stain", "bird droppings"],
+    'Window/Glass': ["window", "squeegee", "worker", "ladder", "glass", "bucket", "water streak", "scaffold", "dirt", "fingerprints", "bird droppings", "smudge"],
+    'Graffiti/Stickers': ["graffiti", "sticker", "spray paint", "wall stain", "tag", "poster", "adhesive residue", "utility pole", "electrical box", "glue", "scratch"],
+    'Lighting': ["light fixture", "ladder", "worker", "light bulb", "broken glass", "lamp post", "ceiling light", "cobweb", "dust", "dirt", "bird droppings"],
+    'Restroom': ["toilet", "sink", "urinal", "paper towel dispenser", "worker", "mirror", "stall door", "soap dispenser", "wet floor sign", "trash bin", "mess", "paper on floor", "water spill", "stain"],
+    'Gutters': ["gutter", "leaves", "debris", "ladder", "downspout", "roof edge", "pine needles", "sludge", "dirt", "overflow", "bird droppings"],
+    'Floor/Carpet': ["floor buffer", "vacuum", "mop", "wet floor sign", "stain", "dirt", "scuff mark", "carpet cleaner", "dust", "spill", "footprints"],
+    'Vacant Unit': ["empty room", "carpet", "furniture", "trash", "debris", "wall damage", "paint bucket", "blinds", "dust", "cobweb", "bird droppings"], 
+    'General Cleaning': ["cleaning cart", "mop", "broom", "worker", "leaves", "debris", "trash", "dirt", "dustpan", "leaf blower", "rake", "hose", "dust", "spill", "bird droppings"]
 }
 
 def preprocess_masks(args):
@@ -97,7 +97,58 @@ def preprocess_masks(args):
         task_label = row['task_label']
         
         # Determine prompts for this image based on its task
-        prompts = TASK_PROMPTS.get(task_label, ["object"]) # Default fallback
+        prompts = TASK_PROMPTS.get(task_label, ["object"]).copy()
+        
+        # --- DYNAMIC PROMPTING FROM FULL PATH ---
+        # User analysis: "tasks are in the parent or grandparent folder names"
+        # Strategy: Tokenize the ENTIRE path. Look for useful words.
+        
+        # Get all parts of the path relevant to the image
+        # e.g. data/original/SITE/Month/TaskFolder/Image.jpg
+        # specific_parts = ['SITE', 'Month', 'TaskFolder']
+        
+        norm_path = os.path.normpath(image_path)
+        path_parts = norm_path.split(os.sep)
+        
+        # Filter out common non-descriptive folders to avoid noise
+        IGNORED_FOLDERS = {
+            'data', 'original', 'images', 'img', 'dcim', '100apple', 
+            'log', 'logs', 'march', 'april', 'may', 'june', 'july', 'august', 
+            'september', 'october', 'november', 'december', 'january', 'february',
+            'waipio', 'shopping', 'center', '.', '..', 'ok', 'bad'
+        }
+        
+        for part in path_parts:
+            clean_part = part.lower()
+            
+            # Skip if file name
+            if clean_part == os.path.basename(image_path).lower():
+                continue
+                
+            # Clean "ok ", "bad ", etc.
+            for ignore in ['ok ', 'bad ', 'ok_', 'bad_', '_']:
+                clean_part = clean_part.replace(ignore, ' ')
+            
+            # Remove digits
+            clean_part = ''.join([c for c in clean_part if not c.isdigit()])
+            clean_part = clean_part.strip()
+            
+            # Split into potentially separate words
+            words = clean_part.split()
+            
+            # Add the whole phrase if it's meaningful
+            if len(clean_part) > 2 and clean_part not in IGNORED_FOLDERS:
+                # Heuristic: If it contains one of our known key terms, trust it more.
+                # But generally, just add it. SAM 3 is robust to some noise.
+                prompts.append(clean_part)
+                
+            # Add individual significant words
+            for w in words:
+                if len(w) > 3 and w not in IGNORED_FOLDERS:
+                     prompts.append(w)
+                     
+        # Deduplicate
+        prompts = list(set(prompts))
         
         # Output mask path
         # Match the directory structure of the original images
