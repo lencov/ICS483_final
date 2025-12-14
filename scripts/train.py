@@ -31,7 +31,7 @@ class MultiHeadProbe(nn.Module):
         
         if 'dino' in backbone_name:
             # Load DINOv3 using timm
-            print(f"Loading DINOv3 model: {backbone_name}")
+            print(f"Loading DINO model: {backbone_name}")
             self.backbone = timm.create_model(backbone_name, pretrained=True, num_classes=0)
             self.embed_dim = self.backbone.num_features
             self.processor = None # DINOv3 uses standard transforms
@@ -56,7 +56,7 @@ class MultiHeadProbe(nn.Module):
         self.state_head = nn.Linear(self.embed_dim, num_states)
         
     def forward(self, x):
-        if 'dinov3' in self.backbone_name:
+        if 'dino' in self.backbone_name:
             features = self.backbone(x)
         elif 'clip' in self.backbone_name:
             # CLIP expects pixel_values
