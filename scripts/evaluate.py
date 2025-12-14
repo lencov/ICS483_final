@@ -115,8 +115,8 @@ if __name__ == '__main__':
     parser.add_argument('--root', type=str, default='.', help='Root directory containing data/')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--output_dir', type=str, default='.')
-    parser.add_argument('--backbone', type=str, default='vit_small_patch14_dinov2.lvd142m', 
-                        help='Backbone model name. Examples: vit_small_patch14_dinov2.lvd142m (DINOv2), openai/clip-vit-base-patch16 (CLIP)')
+    parser.add_argument('--backbone', type=str, default='vit_small_patch16_dinov3', 
+                        help='Backbone model name. Examples: vit_small_patch16_dinov3 (DINOv3), openai/clip-vit-base-patch16 (CLIP)')
     parser.add_argument('--use_masks', action='store_true', help='Use SAM 3 generated masks')
     args = parser.parse_args()
     

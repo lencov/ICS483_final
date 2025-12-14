@@ -29,7 +29,7 @@ class MultiHeadProbe(nn.Module):
         self.backbone_name = backbone_name
         self.device = device
         
-        if 'dinov3' in backbone_name:
+        if 'dino' in backbone_name:
             # Load DINOv3 using timm
             print(f"Loading DINOv3 model: {backbone_name}")
             self.backbone = timm.create_model(backbone_name, pretrained=True, num_classes=0)
@@ -69,7 +69,7 @@ class MultiHeadProbe(nn.Module):
         return task_logits, state_logits
 
 def get_transforms(backbone_name):
-    if 'dinov3' in backbone_name:
+    if 'dino' in backbone_name:
         # Standard ImageNet transform for DINOv3
         return transforms.Compose([
             transforms.Resize((224, 224)),
@@ -185,8 +185,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--output_dir', type=str, default='.')
-    parser.add_argument('--backbone', type=str, default='vit_small_patch14_dinov2.lvd142m', 
-                        help='Backbone model name. Examples: vit_small_patch14_dinov2.lvd142m (DINOv2), openai/clip-vit-base-patch16 (CLIP)')
+    parser.add_argument('--backbone', type=str, default='vit_small_patch16_dinov3', 
+                        help='Backbone model name. Examples: vit_small_patch16_dinov3 (DINOv3), openai/clip-vit-base-patch16 (CLIP)')
     parser.add_argument('--use_masks', action='store_true', help='Use SAM 3 generated masks to black out background')
     args = parser.parse_args()
     
