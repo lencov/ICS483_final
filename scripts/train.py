@@ -105,8 +105,8 @@ def train(args):
     train_dataset = JanitorialDataset(args.csv, args.root, split='train', transform=transform, use_masks=args.use_masks)
     val_dataset = JanitorialDataset(args.csv, args.root, split='val', transform=transform, use_masks=args.use_masks)
     
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
     
@@ -213,6 +213,7 @@ if __name__ == '__main__':
     parser.add_argument('--backbone', type=str, default='vit_small_patch16_dinov3', 
                         help='Backbone model name. Examples: vit_small_patch16_dinov3 (DINOv3), openai/clip-vit-base-patch16 (CLIP)')
     parser.add_argument('--use_masks', action='store_true', help='Use SAM 3 generated masks to black out background')
+    parser.add_argument('--num_workers', type=int, default=2, help='Number of dataloader workers')
     args = parser.parse_args()
     
     train(args)
