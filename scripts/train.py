@@ -94,16 +94,19 @@ def get_transforms(backbone_name):
         ])
     return None
 
-def train(args):
+def train(args, train_dataset=None, val_dataset=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
+    print(f"Using Masks: {args.use_masks}")
     
     # Transforms
     transform = get_transforms(args.backbone)
     
-    # Datasets
-    train_dataset = JanitorialDataset(args.csv, args.root, split='train', transform=transform, use_masks=args.use_masks, cache_images=args.cache_images, limit=args.limit)
-    val_dataset = JanitorialDataset(args.csv, args.root, split='val', transform=transform, use_masks=args.use_masks, cache_images=args.cache_images, limit=args.limit)
+    # Datasets (Create if not provided)
+    if train_dataset is None:
+        train_dataset = JanitorialDataset(args.csv, args.root, split='train', transform=transform, use_masks=args.use_masks, cache_images=args.cache_images, limit=args.limit)
+    if val_dataset is None:
+        val_dataset = JanitorialDataset(args.csv, args.root, split='val', transform=transform, use_masks=args.use_masks, cache_images=args.cache_images, limit=args.limit)
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=True)
