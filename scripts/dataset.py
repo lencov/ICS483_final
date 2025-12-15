@@ -96,7 +96,7 @@ class JanitorialDataset(Dataset):
             for idx in tqdm(range(len(self.samples)), desc="Caching"):
                 self.load_image(idx)
                 
-    def len(self):
+    def __len__(self):
         return len(self.samples)
 
     def load_image(self, idx):
