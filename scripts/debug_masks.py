@@ -33,32 +33,37 @@ def debug_masks():
         path = sample['path']
         print(f"Processing: {path}")
         
-        # Load exactly as dataset does (image + mask)
-        # Note: __getitem__ returns (image, task, state, path)
-        # But image is a Tensor if transform is set. 
-        # Here we manually call load_image to get PIL Image (before transform)
-        
+        # Check if mask exists manually to report to user
+        base_name, _ = os.path.splitext(sample['path'])
+        mask_path = os.path.join(dataset.root_dir, "data", "masks", base_name + ".png")
+        if os.path.exists(mask_path):
+            print(f"  [OK] Mask found at: {mask_path}")
+            # Load stats
+             try:
+                m = Image.open(mask_path).convert('L')
+                import numpy as np
+                m_arr = np.array(m)
+                coverage = np.mean(m_arr > 128) * 100
+                print(f"  [STATS] Mask Coverage: {coverage:.2f}% of image is kept.")
+             except:
+                pass
+        else:
+            print(f"  [ERROR] Mask NOT found at: {mask_path}")
+
         # Manually replicate load_image logic just to be safe/explicit
         # (Or rely on dataset.load_image if it's cleaner)
         pil_image = dataset.load_image(idx)
         debug_images.append(pil_image)
         
     # Stitch them together
-    w, h = debug_images[0].size
-    total_w = w * len(debug_images)
-    collage = Image.new('RGB', (total_w, h))
+    # Use fixed 300x300 for collage tiles
+    tile_size = 300
+    total_w = tile_size * len(debug_images)
+    collage = Image.new('RGB', (total_w, tile_size))
     
     for i, img in enumerate(debug_images):
-        # Resize to match first if needed (should be same if not resized, but load_image resizes to 640/cache)
-        # Wait, if cache_images=False (default above), load_image returns full size?
-        # Let's check dataset.py logic. 
-        # "if self.cache_images: resize... self.image_cache[idx] = image; return image"
-        # "return image" (at end)
-        # So if cache_images=False, it returns Full Size image.
-        
-        # Resize for collage
-        img = img.resize((300, 300))
-        collage.paste(img, (i * 300, 0))
+        img = img.resize((tile_size, tile_size))
+        collage.paste(img, (i * tile_size, 0))
         
     print(f"Saving collage to {OUTPUT_IMAGE}...")
     collage.save(OUTPUT_IMAGE)
