@@ -128,6 +128,11 @@ class JanitorialDataset(Dataset):
                         print(f"Error loading mask {mask_path}: {e}")
             
             if self.cache_images:
+                # OPTIMIZATION: Resize to a "Safe Max" before caching.
+                # Raw 12MP images are ~36MB uncompressed in RAM.
+                # Resizing to 640px makes them ~1MB.
+                # We need 224px or 518px for the model, so 640 is plenty.
+                image.thumbnail((640, 640), Image.Resampling.LANCZOS)
                 self.image_cache[idx] = image
                 
             return image
