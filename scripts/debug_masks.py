@@ -39,13 +39,13 @@ def debug_masks():
         if os.path.exists(mask_path):
             print(f"  [OK] Mask found at: {mask_path}")
             # Load stats
-             try:
+            try:
                 m = Image.open(mask_path).convert('L')
                 import numpy as np
                 m_arr = np.array(m)
                 coverage = np.mean(m_arr > 128) * 100
                 print(f"  [STATS] Mask Coverage: {coverage:.2f}% of image is kept.")
-             except:
+            except:
                 pass
         else:
             print(f"  [ERROR] Mask NOT found at: {mask_path}")
