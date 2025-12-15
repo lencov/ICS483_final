@@ -70,9 +70,16 @@ class MultiHeadProbe(nn.Module):
 
 def get_transforms(backbone_name):
     if 'dino' in backbone_name:
-        # Standard ImageNet transform for DINOv3
+        # Standard ImageNet transform for DINO
+        # DINOv2 usually likes 518x518, DINOv3 (ViT-S/16) likes 224x224 or 384x384
+        size = 224
+        if 'dinov2' in backbone_name:
+            size = 518
+        elif 'patch16' in backbone_name:
+            size = 224 # patch16 typically 224 training
+            
         return transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((size, size)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
@@ -106,9 +113,26 @@ def train(args):
     # Model
     model = MultiHeadProbe(args.backbone, num_tasks=11, num_states=2, device=device).to(device)
     
+    # Calculate Class Weights for State Imbalance
+    # Simple count: Active (0) vs Done (1)
+    state_counts = torch.zeros(num_states)
+    for s in train_dataset.samples:
+        lbl = s['state_label']
+        if lbl != -1:
+            state_counts[lbl] += 1
+            
+    print(f"Class Distribution: Active={int(state_counts[0])}, Done={int(state_counts[1])}")
+    
+    # Weight = Total / (Count * Num_Classes) or just Inverse Frequency
+    # Let's use simple inverse: weight = Max_Count / Count
+    max_count = torch.max(state_counts)
+    weights = max_count / (state_counts + 1e-6) # Avoid zero div
+    weights = weights.to(device)
+    print(f"Using Weights: {weights}")
+
     # Loss & Optimizer
     criterion_task = nn.CrossEntropyLoss()
-    criterion_state = nn.CrossEntropyLoss(ignore_index=-1) # Ignore 'Other'/-1
+    criterion_state = nn.CrossEntropyLoss(weight=weights, ignore_index=-1) # Ignore 'Other'/-1
     
     optimizer = optim.Adam(list(model.task_head.parameters()) + list(model.state_head.parameters()), lr=args.lr)
     
