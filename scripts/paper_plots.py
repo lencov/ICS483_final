@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import csv
 from dataset import JanitorialDataset
 from PIL import Image
 import random
@@ -40,7 +41,8 @@ def plot_class_distribution():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
     # State Bar
-    sns.barplot(x=list(state_counts.keys()), y=list(state_counts.values()), ax=ax1, palette='viridis')
+    # Fix FutureWarning: assign x to hue
+    sns.barplot(x=list(state_counts.keys()), y=list(state_counts.values()), ax=ax1, hue=list(state_counts.keys()), palette='viridis', legend=False)
     ax1.set_title('State Label Distribution (Imbalance)')
     ax1.set_ylabel('Count')
     for i, v in enumerate(state_counts.values()):
@@ -49,7 +51,8 @@ def plot_class_distribution():
     # Task Bar
     # Sort by count
     sorted_tasks = dict(sorted(task_counts.items(), key=lambda item: item[1], reverse=True))
-    sns.barplot(x=list(sorted_tasks.values()), y=list(sorted_tasks.keys()), ax=ax2, palette='magma')
+    # Fix FutureWarning: assign y to hue
+    sns.barplot(x=list(sorted_tasks.values()), y=list(sorted_tasks.keys()), ax=ax2, hue=list(sorted_tasks.keys()), palette='magma', legend=False)
     ax2.set_title('Task Label Distribution')
     ax2.set_xlabel('Count')
     
@@ -152,7 +155,8 @@ def plot_raw_distribution():
     sorted_counts = dict(sorted(label_counts.items(), key=lambda item: item[1], reverse=True))
     
     plt.figure(figsize=(8, 6))
-    sns.barplot(x=list(sorted_counts.keys()), y=list(sorted_counts.values()), palette='rocket')
+    # Fix FutureWarning
+    sns.barplot(x=list(sorted_counts.keys()), y=list(sorted_counts.values()), hue=list(sorted_counts.keys()), palette='rocket', legend=False)
     plt.title('Raw Class Distribution (Pre-Merge)')
     plt.ylabel('Count')
     
