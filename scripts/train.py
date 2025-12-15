@@ -111,7 +111,8 @@ def train(args):
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
     
     # Model
-    model = MultiHeadProbe(args.backbone, num_tasks=11, num_states=2, device=device).to(device)
+    num_states = 2
+    model = MultiHeadProbe(args.backbone, num_tasks=11, num_states=num_states, device=device).to(device)
     
     # Calculate Class Weights for State Imbalance
     # Simple count: Active (0) vs Done (1)
