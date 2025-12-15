@@ -51,11 +51,13 @@ class JanitorialDataset(Dataset):
         'Unlabeled': -1
     }
 
-    def __init__(self, csv_file, root_dir, split='train', transform=None, use_masks=False):
+    def __init__(self, csv_file, root_dir, split='train', transform=None, use_masks=False, cache_images=False):
         self.root_dir = root_dir
         self.transform = transform
         self.use_masks = use_masks
+        self.cache_images = cache_images
         self.samples = []
+        self.image_cache = {} # Index -> PIL Image
         
         with open(csv_file, 'r') as f:
             reader = csv.DictReader(f)
@@ -86,11 +88,23 @@ class JanitorialDataset(Dataset):
                     'state_label': state_idx,
                     'site_id': row['site_id']
                 })
+        
+        # Pre-cache images if requested
+        if self.cache_images:
+            print(f"Caching {len(self.samples)} images to RAM... (This make take a moment)")
+            from tqdm import tqdm
+            for idx in tqdm(range(len(self.samples)), desc="Caching"):
+                self.load_image(idx)
                 
-    def __len__(self):
+    def len(self):
         return len(self.samples)
-    
-    def __getitem__(self, idx):
+
+    def load_image(self, idx):
+        """Helper to load image from disk (or cache if implemented later logic, but here we utilize it for pre-loading)"""
+        # If already in cache (and we are using cache), return it
+        if self.cache_images and idx in self.image_cache:
+            return self.image_cache[idx]
+            
         sample = self.samples[idx]
         path = os.path.join(self.root_dir, sample['path'])
         
@@ -103,37 +117,33 @@ class JanitorialDataset(Dataset):
                 
                 if os.path.exists(mask_path):
                     try:
-                        # Load mask (L mode = 8-bit pixels, black and white)
                         mask = Image.open(mask_path).convert('L')
-                        # Resize if dimensions differ (SAM 3 might have resized or original image handling issues)
                         if mask.size != image.size:
                             mask = mask.resize(image.size, Image.NEAREST)
-                            
-                        # Apply mask: Keep image where mask > 0, else Black
-                        # Composite syntax: composite(image1, image2, mask). 
-                        # mask uses 0 as transparent (show image2) and 255 as opaque (show image1). 
-                        # Wait, Image.composite(image, background, mask):
-                        # "Interpolates between image and background using mask as alpha."
-                        # If mask is 255 (white): shows image.
-                        # If mask is 0 (black): shows background.
-                        # SAM 3 mask is likely 1 where object is?
-                        # In preprocessing script: 
-                        # combined_mask = torch.any(masks, dim=0) -> True/False
-                        # Image.fromarray(combined_mask * 255) -> 255 (White) for Object, 0 (Black) for Background.
-                        # So Mask=255 means "This is the object".
-                        
-                        # So composite(image, black, mask) -> Shows image where mask=255 (Object), shows Black where mask=0.
-                        # This is exactly what we want: Black out the background.
                         
                         black_bg = Image.new('RGB', image.size, (0, 0, 0))
                         image = Image.composite(image, black_bg, mask)
                         
                     except Exception as e:
                         print(f"Error loading mask {mask_path}: {e}")
+            
+            if self.cache_images:
+                self.image_cache[idx] = image
                 
+            return image
+            
         except Exception as e:
             print(f"Error loading {path}: {e}")
-            image = Image.new('RGB', (224, 224))
+            return Image.new('RGB', (224, 224))
+    
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        
+        # Load Image (From Cache or Disk)
+        image = self.load_image(idx)
+            
+        if self.transform:
+            image = self.transform(image)
             
         if self.transform:
             image = self.transform(image)

@@ -102,8 +102,8 @@ def train(args):
     transform = get_transforms(args.backbone)
     
     # Datasets
-    train_dataset = JanitorialDataset(args.csv, args.root, split='train', transform=transform, use_masks=args.use_masks)
-    val_dataset = JanitorialDataset(args.csv, args.root, split='val', transform=transform, use_masks=args.use_masks)
+    train_dataset = JanitorialDataset(args.csv, args.root, split='train', transform=transform, use_masks=args.use_masks, cache_images=args.cache_images)
+    val_dataset = JanitorialDataset(args.csv, args.root, split='val', transform=transform, use_masks=args.use_masks, cache_images=args.cache_images)
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
@@ -214,6 +214,7 @@ if __name__ == '__main__':
                         help='Backbone model name. Examples: vit_small_patch16_dinov3 (DINOv3), openai/clip-vit-base-patch16 (CLIP)')
     parser.add_argument('--use_masks', action='store_true', help='Use SAM 3 generated masks to black out background')
     parser.add_argument('--num_workers', type=int, default=2, help='Number of dataloader workers')
+    parser.add_argument('--cache_images', action='store_true', help='Cache all images to RAM for speed')
     args = parser.parse_args()
     
     train(args)
