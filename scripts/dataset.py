@@ -51,7 +51,7 @@ class JanitorialDataset(Dataset):
         'Unlabeled': -1
     }
 
-    def __init__(self, csv_file, root_dir, split='train', transform=None, use_masks=False, cache_images=False):
+    def __init__(self, csv_file, root_dir, split='train', transform=None, use_masks=False, cache_images=False, limit=None):
         self.root_dir = root_dir
         self.transform = transform
         self.use_masks = use_masks
@@ -89,6 +89,11 @@ class JanitorialDataset(Dataset):
                     'site_id': row['site_id']
                 })
         
+        # Limit dataset for debugging
+        if limit is not None:
+            print(f"Limiting dataset to {limit} samples (Debugging)")
+            self.samples = self.samples[:limit]
+
         # Pre-cache images if requested
         if self.cache_images:
             print(f"Caching {len(self.samples)} images to RAM... (This make take a moment)")
@@ -150,8 +155,7 @@ class JanitorialDataset(Dataset):
         if self.transform:
             image = self.transform(image)
             
-        if self.transform:
-            image = self.transform(image)
+
             
         return {
             'image': image,
