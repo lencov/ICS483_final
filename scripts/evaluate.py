@@ -20,6 +20,7 @@ def evaluate(args, dataset=None):
     transform = get_transforms(args.backbone)
     
     # Dataset
+    split = 'provided'
     if dataset is None:
         # Use 'test' split if available, else 'val'
         split = 'test'
