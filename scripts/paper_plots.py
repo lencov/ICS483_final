@@ -68,64 +68,105 @@ def plot_methodology_strip():
         print("No active images found.")
         return
         
-    # Try a few until we find one with a mask file
-    selected_idx = None
-    for idx in random.sample(active_indices, min(20, len(active_indices))):
+    # Select 5 random active images with masks
+    available_indices = []
+    for idx in active_indices:
         sample = dataset.samples[idx]
         base_name, _ = os.path.splitext(sample['path'])
-        mask_path = os.path.join(ROOT_DIR, "data", "masks", base_name + ".png")
-        if os.path.exists(mask_path):
-            selected_idx = idx
-            break
+        if os.path.exists(os.path.join(ROOT_DIR, "data", "masks", base_name + ".png")):
+            available_indices.append(idx)
             
-    if selected_idx is None:
-        print("Could not find an active image with a mask file.")
+    if not available_indices:
+        print("No active images with masks found.")
         return
         
-    # Load 3 views
-    # 1. Original
-    sample = dataset.samples[selected_idx]
-    orig_path = os.path.join(ROOT_DIR, sample['path'])
-    img_orig = Image.open(orig_path).convert('RGB')
+    num_examples = min(5, len(available_indices))
+    selected_indices = random.sample(available_indices, num_examples)
     
-    # 2. Mask
-    base_name, _ = os.path.splitext(sample['path'])
-    mask_path = os.path.join(ROOT_DIR, "data", "masks", base_name + ".png")
-    img_mask = Image.open(mask_path).convert('L') # Gray
-    
-    # 3. Masked Input (What model sees)
-    # Resize mask to img
-    if img_mask.size != img_orig.size:
-        img_mask = img_mask.resize(img_orig.size, Image.Resampling.NEAREST)
+    for i, selected_idx in enumerate(selected_indices):
+        # Load 3 views
+        # 1. Original
+        sample = dataset.samples[selected_idx]
+        orig_path = os.path.join(ROOT_DIR, sample['path'])
+        img_orig = Image.open(orig_path).convert('RGB')
         
-    black_bg = Image.new('RGB', img_orig.size, (0, 0, 0))
-    img_final = Image.composite(img_orig, black_bg, img_mask)
+        # 2. Mask
+        base_name, _ = os.path.splitext(sample['path'])
+        mask_path = os.path.join(ROOT_DIR, "data", "masks", base_name + ".png")
+        img_mask = Image.open(mask_path).convert('L') # Gray
+        
+        # 3. Masked Input (What model sees)
+        if img_mask.size != img_orig.size:
+            img_mask = img_mask.resize(img_orig.size, Image.Resampling.NEAREST)
+            
+        black_bg = Image.new('RGB', img_orig.size, (0, 0, 0))
+        img_final = Image.composite(img_orig, black_bg, img_mask)
+        
+        # Resize for plot
+        H = 400
+        W = int(H * img_orig.width / img_orig.height)
+        img_orig = img_orig.resize((W, H))
+        img_mask = img_mask.resize((W, H))
+        img_final = img_final.resize((W, H))
+        
+        # Combine
+        fig, axes = plt.subplots(1, 3, figsize=(12, 5))
+        axes[0].imshow(img_orig)
+        axes[0].set_title("Original Input")
+        axes[0].axis('off')
+        
+        axes[1].imshow(img_mask, cmap='gray')
+        axes[1].set_title("SAM 3 Mask (ROI)")
+        axes[1].axis('off')
+        
+        axes[2].imshow(img_final)
+        axes[2].set_title("Model Input")
+        axes[2].axis('off')
+        
+        plt.tight_layout()
+        filename = f'methodology_visualization_{i}.png'
+        plt.savefig(os.path.join(OUTPUT_DIR, filename), dpi=300)
+        print(f"Saved {filename}")
+        plt.close(fig)
+
+def plot_raw_distribution():
+    print("Generating Raw Distribution Plot...")
+    label_counts = {}
     
-    # Resize for plot
-    H = 400
-    W = int(H * img_orig.width / img_orig.height)
-    img_orig = img_orig.resize((W, H))
-    img_mask = img_mask.resize((W, H))
-    img_final = img_final.resize((W, H))
+    with open(CSV_FILE, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Replicate dataset.py logic exactly to get the string
+            v2 = row['v2_label']
+            v1 = row['v1_label']
+            
+            state_str = 'Unlabeled'
+            if v2 and v2 != 'Unlabeled':
+                state_str = v2
+            elif v1 and v1 != 'Unlabeled':
+                state_str = v1
+            
+            label_counts[state_str] = label_counts.get(state_str, 0) + 1
+            
+    # Sort for plotting
+    sorted_counts = dict(sorted(label_counts.items(), key=lambda item: item[1], reverse=True))
     
-    # Combine
-    fig, axes = plt.subplots(1, 3, figsize=(12, 5))
-    axes[0].imshow(img_orig)
-    axes[0].set_title("Original Input")
-    axes[0].axis('off')
+    plt.figure(figsize=(8, 6))
+    sns.barplot(x=list(sorted_counts.keys()), y=list(sorted_counts.values()), palette='rocket')
+    plt.title('Raw Class Distribution (Pre-Merge)')
+    plt.ylabel('Count')
     
-    axes[1].imshow(img_mask, cmap='gray')
-    axes[1].set_title("SAM 3 Mask (ROI)")
-    axes[1].axis('off')
-    
-    axes[2].imshow(img_final)
-    axes[2].set_title("Model Input (Background Removed)")
-    axes[2].axis('off')
-    
+    # Add percentages
+    total = sum(sorted_counts.values())
+    for i, v in enumerate(sorted_counts.values()):
+        pct = (v / total) * 100
+        plt.text(i, v + 50, f"{v}\n({pct:.1f}%)", ha='center')
+        
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'methodology_visualization.png'), dpi=300)
-    print(f"Saved methodology_visualization.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, 'raw_state_distribution.png'), dpi=300)
+    print(f"Saved raw_state_distribution.png")
 
 if __name__ == "__main__":
     plot_class_distribution()
     plot_methodology_strip()
+    plot_raw_distribution()
