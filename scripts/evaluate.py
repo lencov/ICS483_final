@@ -12,7 +12,7 @@ import numpy as np
 from dataset import JanitorialDataset
 from train import MultiHeadProbe, get_transforms # Import from train to ensure consistency
 
-def evaluate(args):
+def evaluate(args, dataset=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
     
@@ -20,13 +20,14 @@ def evaluate(args):
     transform = get_transforms(args.backbone)
     
     # Dataset
-    # Use 'test' split if available, else 'val'
-    split = 'test'
-    dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform, use_masks=args.use_masks)
-    if len(dataset) == 0:
-        print("Test split empty, falling back to val split.")
-        split = 'val'
+    if dataset is None:
+        # Use 'test' split if available, else 'val'
+        split = 'test'
         dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform, use_masks=args.use_masks)
+        if len(dataset) == 0:
+            print("Test split empty, falling back to val split.")
+            split = 'val'
+            dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform, use_masks=args.use_masks)
         
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
     print(f"Evaluating on {split} set ({len(dataset)} samples).")
