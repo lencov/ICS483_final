@@ -171,7 +171,12 @@ def train(args, train_dataset=None, val_dataset=None):
         validate(model, val_loader, device)
         
     # Save model
-    torch.save(model.state_dict(), os.path.join(args.output_dir, f'model_{args.backbone.replace("/", "_")}.pth'))
+    model_filename = f'model_{args.backbone.replace("/", "_")}.pth'
+    if hasattr(args, 'run_name') and args.run_name:
+        model_filename = f'{args.run_name}.pth'
+        
+    torch.save(model.state_dict(), os.path.join(args.output_dir, model_filename))
+    print(f"Saved model to {os.path.join(args.output_dir, model_filename)}")
 
 def validate(model, loader, device):
     model.eval()
