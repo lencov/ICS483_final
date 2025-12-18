@@ -39,3 +39,4 @@ venv/
 
 # Colab Zips (Don't commit the zips)
 *.zip
+*.json

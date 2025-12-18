@@ -10,19 +10,16 @@ from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 
 from dataset import JanitorialDataset
-from train import MultiHeadProbe, get_transforms # Import from train to ensure consistency
+from train import MultiHeadProbe, get_transforms
 
 def evaluate(args, dataset=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    # Transforms
     transform = get_transforms(args.backbone)
     
-    # Dataset
     split = 'provided'
     if dataset is None:
-        # Use 'test' split if available, else 'val'
         split = 'test'
         dataset = JanitorialDataset(args.csv, args.root, split=split, transform=transform, use_masks=args.use_masks)
         if len(dataset) == 0:
@@ -33,10 +30,8 @@ def evaluate(args, dataset=None):
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
     print(f"Evaluating on {split} set ({len(dataset)} samples).")
     
-    # Model
     model = MultiHeadProbe(args.backbone, num_tasks=11, num_states=2, device=device).to(device)
     
-    # Load weights
     model_path = os.path.join(args.output_dir, f'model_{args.backbone.replace("/", "_")}.pth')
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -65,17 +60,14 @@ def evaluate(args, dataset=None):
             all_task_preds.extend(predicted_task.cpu().numpy())
             all_task_labels.extend(task_labels.cpu().numpy())
             
-            # Filter ignored states
             mask = state_labels != -1
             if mask.sum() > 0:
                 all_state_preds.extend(predicted_state[mask].cpu().numpy())
                 all_state_labels.extend(state_labels[mask].cpu().numpy())
-                
-    # Task Metrics
+
     task_keys = sorted(JanitorialDataset.TASK_MAP.values())
     task_names = [k for k, v in sorted(JanitorialDataset.TASK_MAP.items(), key=lambda item: item[1])]
     
-    # Check if all classes present
     unique_labels = sorted(list(set(all_task_labels)))
     print(f"Unique task labels in GT: {unique_labels}")
     

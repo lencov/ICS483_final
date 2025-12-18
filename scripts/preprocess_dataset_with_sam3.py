@@ -10,22 +10,14 @@ import json
 import pillow_heif
 pillow_heif.register_heif_opener()
 
-# Try to import sam3, assuming the environment is set up correctly
 from sam3.model_builder import build_sam3_image_model
 from sam3.model.sam3_image_processor import Sam3Processor
 
-# Mapping from our Task Labels to SAM 3 Text Prompts
-# ... (omitted for brevity in replacement, but I must match TargetContent precisely so I can't just omit)
-# Actually, I'll validly replacing the import block and the loop logic separately.
-
-# First chunk: Imports
 import pillow_heif
 pillow_heif.register_heif_opener()
 from sam3.model_builder import build_sam3_image_model
 from sam3.model.sam3_image_processor import Sam3Processor
 
-# Mapping from our Task Labels to SAM 3 Text Prompts
-# tailored to find the 'active' elements of the task
 TASK_PROMPTS = {
     'Pressure Washing': ["pressure washer", "water hose", "wet surface", "worker", "spray gun", "concrete stain", "mold", "wall", "dirt", "grime", "gum", "tire marks", "bird droppings"],
     'Trash Removal': ["trash bag", "garbage bin", "trash can", "debris", "worker", "dumpster", "cardboard box", "litter", "overflowing bin", "liquid spill", "stain"],
@@ -41,19 +33,16 @@ TASK_PROMPTS = {
 }
 
 def preprocess_masks(args):
-    # Setup Device
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     if args.device:
         device = args.device
     print(f"Using device: {device}")
 
-    # Load Model
     print("Loading SAM 3 model...")
     model = build_sam3_image_model()
     model.to(device)
     model.eval()
 
-    # DEBUG: Inspect model for non-CPU tensors
     print("DEBUG: Inspecting model devices...")
     for name, param in model.named_parameters():
         if param.device.type != device:
@@ -63,14 +52,12 @@ def preprocess_masks(args):
         if buf.device.type != device:
             print(f"WARNING: Buffer {name} is on {buf.device}")
 
-    # Inspect for unregistered tensors in modules
     for name, module in model.named_modules():
         for key, val in module.__dict__.items():
             if isinstance(val, torch.Tensor):
                 if val.device.type != device:
                     print(f"WARNING: Unregistered tensor {name}.{key} is on {val.device}")
             elif isinstance(val, (list, tuple)):
-                # Check list of tensors
                 for i, item in enumerate(val):
                     if isinstance(item, torch.Tensor):
                          if item.device.type != device:
@@ -81,36 +68,23 @@ def preprocess_masks(args):
     processor = Sam3Processor(model, device=device)
     print("Model loaded.")
 
-    # Prepare Output Directory
     mask_dir = os.path.join(args.root, "data", "masks")
     os.makedirs(mask_dir, exist_ok=True)
 
-    # Read CSV
     with open(args.csv, 'r') as f:
         reader = list(csv.DictReader(f))
 
-    # Processing Loop
     print(f"Processing {len(reader)} images...")
     
     for row in tqdm(reader):
         image_path = os.path.join(args.root, row['image_path'])
         task_label = row['task_label']
         
-        # Determine prompts for this image based on its task
         prompts = TASK_PROMPTS.get(task_label, ["object"]).copy()
-        
-        # --- DYNAMIC PROMPTING FROM FULL PATH ---
-        # User analysis: "tasks are in the parent or grandparent folder names"
-        # Strategy: Tokenize the ENTIRE path. Look for useful words.
-        
-        # Get all parts of the path relevant to the image
-        # e.g. data/original/SITE/Month/TaskFolder/Image.jpg
-        # specific_parts = ['SITE', 'Month', 'TaskFolder']
         
         norm_path = os.path.normpath(image_path)
         path_parts = norm_path.split(os.sep)
         
-        # Filter out common non-descriptive folders to avoid noise
         IGNORED_FOLDERS = {
             'data', 'original', 'images', 'img', 'dcim', '100apple', 
             'log', 'logs', 'march', 'april', 'may', 'june', 'july', 'august', 
@@ -121,44 +95,31 @@ def preprocess_masks(args):
         for part in path_parts:
             clean_part = part.lower()
             
-            # Skip if file name
             if clean_part == os.path.basename(image_path).lower():
                 continue
                 
-            # Clean "ok ", "bad ", etc.
             for ignore in ['ok ', 'bad ', 'ok_', 'bad_', '_']:
                 clean_part = clean_part.replace(ignore, ' ')
             
-            # Remove digits
             clean_part = ''.join([c for c in clean_part if not c.isdigit()])
             clean_part = clean_part.strip()
             
-            # Split into potentially separate words
             words = clean_part.split()
             
-            # Add the whole phrase if it's meaningful
             if len(clean_part) > 2 and clean_part not in IGNORED_FOLDERS:
-                # Heuristic: If it contains one of our known key terms, trust it more.
-                # But generally, just add it. SAM 3 is robust to some noise.
                 prompts.append(clean_part)
                 
-            # Add individual significant words
             for w in words:
                 if len(w) > 3 and w not in IGNORED_FOLDERS:
                      prompts.append(w)
                      
-        # Deduplicate
         prompts = list(set(prompts))
         
-        # Output mask path
-        # Match the directory structure of the original images
         rel_path = row['image_path']
-        # Robustly replace extension with .png
         base_name, _ = os.path.splitext(rel_path)
         mask_rel_path = base_name + ".png"
         mask_out_path = os.path.join(mask_dir, mask_rel_path)
         
-        # Skip if already exists
         if os.path.exists(mask_out_path) and not args.overwrite:
             continue
             
@@ -167,16 +128,7 @@ def preprocess_masks(args):
         try:
             image = Image.open(image_path).convert("RGB")
             
-            # 1. Set Image
             inference_state = processor.set_image(image)
-            
-            # 2. Set Text Prompts (Batch processing prompts for one image)
-            # We combine all relevant keywords into one list. 
-            # SAM 3 usually takes a single string or list of strings.
-            # Let's try iterating or combining. 
-            # The summary says: "exhaustively segment all instances of an... concept".
-            # It implies one concept per prompt.
-            # We can prompt multiple concepts and union the masks.
             
             combined_mask = None
             
@@ -186,21 +138,14 @@ def preprocess_masks(args):
                 # scores = output["scores"]
                 
                 if masks is not None and len(masks) > 0:
-                    # masks might be a list or tensor. Convert safely.
                     if not isinstance(masks, torch.Tensor):
                         masks = torch.tensor(masks)
                     
-                    # Ensure masks is on CPU for logic
                     masks = masks.cpu()
 
-                    # masks shape from SAM3 can be [1, 1, H, W] or [1, H, W] or [H, W]
-                    # We want to collapse all leading dimensions to get "Any mask at pixel (i, j)"
                     if masks.ndim > 2:
-                        # Flatten all init dimensions: (N, H, W) -> (N, H, W)
-                        # or (B, N, H, W) -> (B*N, H, W)
                         masks = masks.view(-1, masks.shape[-2], masks.shape[-1])
                     
-                    # Calculate transform
                     current_union = torch.any(masks, dim=0) # [H, W]
                     
                     if combined_mask is None:
@@ -208,18 +153,14 @@ def preprocess_masks(args):
                     else:
                         combined_mask = torch.logical_or(combined_mask, current_union)
             
-            # Save Mask
             if combined_mask is not None:
                 mask_img = Image.fromarray(combined_mask.cpu().numpy().astype('uint8') * 255)
                 mask_img.save(mask_out_path)
             else:
-                # Save empty black mask
                 Image.new('L', image.size, 0).save(mask_out_path)
 
         except RuntimeError as e:
             print(f"RuntimeError processing {image_path}: {e}")
-            # PIL Image objects do not have a .device attribute.
-            # print(f"Image device: {image.device}") 
             print(f"Model backbone device: {processor.model.backbone.vision_backbone.trunk.pos_embed.device}")
             continue
         except Exception as e:

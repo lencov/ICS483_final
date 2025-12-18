@@ -9,7 +9,6 @@ from tqdm import tqdm
 import time
 import ssl
 
-# Fix for SSL Certificate Error
 try:
     _create_unverified_https_context = ssl._create_unverified_context
 except AttributeError:
@@ -19,7 +18,6 @@ else:
 
 from dataset import JanitorialDataset
 
-# Import timm for DINOv3 and transformers for CLIP
 import timm
 from transformers import CLIPModel, CLIPProcessor
 
@@ -30,14 +28,12 @@ class MultiHeadProbe(nn.Module):
         self.device = device
         
         if 'dino' in backbone_name:
-            # Load DINOv3 using timm
             print(f"Loading DINO model: {backbone_name}")
             self.backbone = timm.create_model(backbone_name, pretrained=True, num_classes=0)
             self.embed_dim = self.backbone.num_features
-            self.processor = None # DINOv3 uses standard transforms
+            self.processor = None
             
         elif 'clip' in backbone_name:
-            # Load CLIP using transformers
             print(f"Loading CLIP model: {backbone_name}")
             self.backbone = CLIPModel.from_pretrained(backbone_name).vision_model
             self.embed_dim = self.backbone.config.hidden_size
@@ -45,21 +41,17 @@ class MultiHeadProbe(nn.Module):
         else:
             raise ValueError(f"Unknown backbone: {backbone_name}")
             
-        # Freeze backbone
         for param in self.backbone.parameters():
             param.requires_grad = False
             
-        # Task Head (Multi-class)
         self.task_head = nn.Linear(self.embed_dim, num_tasks)
         
-        # State Head (Binary)
         self.state_head = nn.Linear(self.embed_dim, num_states)
         
     def forward(self, x):
         if 'dino' in self.backbone_name:
             features = self.backbone(x)
         elif 'clip' in self.backbone_name:
-            # CLIP expects pixel_values
             outputs = self.backbone(pixel_values=x)
             features = outputs.pooler_output
             
@@ -70,13 +62,11 @@ class MultiHeadProbe(nn.Module):
 
 def get_transforms(backbone_name):
     if 'dino' in backbone_name:
-        # Standard ImageNet transform for DINO
-        # DINOv2 usually likes 518x518, DINOv3 (ViT-S/16) likes 224x224 or 384x384
         size = 224
         if 'dinov2' in backbone_name:
             size = 518
         elif 'patch16' in backbone_name:
-            size = 224 # patch16 typically 224 training
+            size = 224
             
         return transforms.Compose([
             transforms.Resize((size, size)),
@@ -84,8 +74,6 @@ def get_transforms(backbone_name):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
     elif 'clip' in backbone_name:
-        # CLIP Processor handles normalization, but we need to resize/tensor first if using Dataset
-        # Actually, let's just use standard CLIP mean/std
         return transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
@@ -99,10 +87,8 @@ def train(args, train_dataset=None, val_dataset=None):
     print(f"Using device: {device}")
     print(f"Using Masks: {args.use_masks}")
     
-    # Transforms
     transform = get_transforms(args.backbone)
     
-    # Datasets (Create if not provided)
     if train_dataset is None:
         train_dataset = JanitorialDataset(args.csv, args.root, split='train', transform=transform, use_masks=args.use_masks, cache_images=args.cache_images, limit=args.limit)
     if val_dataset is None:
@@ -113,12 +99,9 @@ def train(args, train_dataset=None, val_dataset=None):
     
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
     
-    # Model
     num_states = 2
     model = MultiHeadProbe(args.backbone, num_tasks=11, num_states=num_states, device=device).to(device)
     
-    # Calculate Class Weights for State Imbalance
-    # Simple count: Active (0) vs Done (1)
     state_counts = torch.zeros(num_states)
     for s in train_dataset.samples:
         lbl = s['state_label']
@@ -127,20 +110,16 @@ def train(args, train_dataset=None, val_dataset=None):
             
     print(f"Class Distribution: Active={int(state_counts[0])}, Done={int(state_counts[1])}")
     
-    # Weight = Total / (Count * Num_Classes) or just Inverse Frequency
-    # Let's use simple inverse: weight = Max_Count / Count
     max_count = torch.max(state_counts)
-    weights = max_count / (state_counts + 1e-6) # Avoid zero div
+    weights = max_count / (state_counts + 1e-6)
     weights = weights.to(device)
     print(f"Using Weights: {weights}")
 
-    # Loss & Optimizer
     criterion_task = nn.CrossEntropyLoss()
-    criterion_state = nn.CrossEntropyLoss(weight=weights, ignore_index=-1) # Ignore 'Other'/-1
+    criterion_state = nn.CrossEntropyLoss(weight=weights, ignore_index=-1)
     
     optimizer = optim.Adam(list(model.task_head.parameters()) + list(model.state_head.parameters()), lr=args.lr)
     
-    # Training Loop
     for epoch in range(args.epochs):
         model.train()
         running_loss = 0.0
@@ -167,10 +146,8 @@ def train(args, train_dataset=None, val_dataset=None):
             
         print(f"Epoch {epoch+1} Loss: {running_loss / len(train_loader):.4f}")
         
-        # Validation
         validate(model, val_loader, device)
         
-    # Save model
     model_filename = f'model_{args.backbone.replace("/", "_")}.pth'
     if hasattr(args, 'run_name') and args.run_name:
         model_filename = f'{args.run_name}.pth'
@@ -193,12 +170,10 @@ def validate(model, loader, device):
             
             task_logits, state_logits = model(images)
             
-            # Task Acc
             _, predicted_task = torch.max(task_logits.data, 1)
             total_task += task_labels.size(0)
             correct_task += (predicted_task == task_labels).sum().item()
             
-            # State Acc (filter ignore_index -1)
             mask = state_labels != -1
             if mask.sum() > 0:
                 _, predicted_state = torch.max(state_logits.data, 1)

@@ -111,10 +111,6 @@ def main():
                 else:
                     split = 'train'
                 
-                # Validity Logic
-                # Valid if it has a meaningful label in V1 OR V2
-                # And is not 'Other' or 'Unlabeled' (unless we want to keep them for now)
-                # For now, let's mark valid if it's not 'Other' in both
                 is_valid = True
                 if v1_label == 'Other' and v2_label == 'Other':
                     is_valid = False

@@ -118,7 +118,10 @@ class JanitorialDataset(Dataset):
             
             if self.use_masks:
                 base_name, _ = os.path.splitext(sample['path'])
-                mask_path = os.path.join(self.root_dir, "data", "masks", base_name + ".png")
+                mask_path_1 = os.path.join(self.root_dir, "data", "masks", base_name + ".png")
+                mask_path_2 = os.path.join(self.root_dir, "masks", base_name + ".png")
+                
+                mask_path = mask_path_1 if os.path.exists(mask_path_1) else mask_path_2
                 
                 if os.path.exists(mask_path):
                     try:
